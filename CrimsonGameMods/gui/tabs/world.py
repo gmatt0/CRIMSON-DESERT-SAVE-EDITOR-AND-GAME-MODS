@@ -784,9 +784,14 @@ class StoreEditorTab(QWidget):
                 count_item.setForeground(QBrush(QColor(COLORS['success'])))
             table.setItem(row, 2, count_item)
 
-            fmt = "Standard" if store.is_standard else "Special"
+            fmt = {
+                'standard': 'Standard',
+                'empty': 'Empty',
+                'trade': 'Trade',
+                'special': 'Special',
+            }.get(store.kind, 'Special')
             fmt_item = QTableWidgetItem(fmt)
-            if not store.is_standard:
+            if store.kind != 'standard':
                 fmt_item.setForeground(QBrush(QColor(COLORS['text_dim'])))
             table.setItem(row, 3, fmt_item)
         table.setSortingEnabled(True)
@@ -847,8 +852,8 @@ class StoreEditorTab(QWidget):
             table.setItem(row, 3, cat_w)
 
             limit_w = QTableWidgetItem()
-            limit_w.setData(Qt.DisplayRole, item.trade_flags)
-            if item.trade_flags >= 999:
+            limit_w.setData(Qt.DisplayRole, item.purchase_limit)
+            if item.purchase_limit >= 999:
                 limit_w.setForeground(QBrush(QColor(COLORS['success'])))
             limit_w.setFlags(editable_flags)
             limit_w.setToolTip("Double-click to edit purchase limit")
@@ -894,7 +899,7 @@ class StoreEditorTab(QWidget):
                 raise ValueError
         except (TypeError, ValueError):
             self._store_suppress_cell_edit = True
-            orig = {4: item.trade_flags, 5: item.buy_price, 6: item.sell_price}[col]
+            orig = {4: item.purchase_limit, 5: item.buy_price, 6: item.sell_price}[col]
             cell.setData(Qt.DisplayRole, orig)
             self._store_suppress_cell_edit = False
             return
@@ -904,7 +909,7 @@ class StoreEditorTab(QWidget):
             if new_val > 0xFFFFFFFF:
                 new_val = 0xFFFFFFFF
             struct.pack_into('<I', body, item.offset + 0x12, new_val)
-            item.trade_flags = new_val
+            item.purchase_limit = new_val
             if new_val >= 999:
                 cell.setForeground(QBrush(QColor(COLORS['success'])))
             else:
@@ -1055,7 +1060,7 @@ class StoreEditorTab(QWidget):
             if row < len(store.items):
                 item = store.items[row]
                 struct.pack_into('<I', body, item.offset + 0x12, new_limit)
-                item.trade_flags = new_limit
+                item.purchase_limit = new_limit
                 changed += 1
 
         if changed:
@@ -1082,7 +1087,7 @@ class StoreEditorTab(QWidget):
         body = self._store_parser_v2._body_data
         for item in store.items:
             struct.pack_into('<I', body, item.offset + 0x12, new_limit)
-            item.trade_flags = new_limit
+            item.purchase_limit = new_limit
 
         self._store_parser._body_data = bytearray(self._store_parser_v2.get_body_bytes())
         self._store_update_change_count(len(store.items))
@@ -1153,25 +1158,21 @@ class StoreEditorTab(QWidget):
         for store in parser.stores:
             if not store.is_standard or not store.items:
                 continue
-            items_start = store.after_name + 51
-            items_end = items_start + store.item_count * 105
-            if not (items_start <= offset < items_end):
-                continue
-            item_idx = (offset - items_start) // 105
-            item_rel = (offset - items_start) % 105
-            if item_idx >= len(store.items):
-                break
-            item = store.items[item_idx]
-            item_name = parser.get_item_name(item.item_key)
-            if item_rel == 0x12:
-                return f"{store.name} - {item_name} (Limit)"
-            elif item_rel == 0x22:
-                return f"{store.name} - {item_name} (ItemID)"
-            elif item_rel == 0x5D:
-                return f"{store.name} - {item_name} (ItemID)"
-            else:
-                return f"{store.name} - {item_name} (+0x{item_rel:02X})"
+            for item in store.items:
+                if item.offset <= offset < item.offset + item.size:
+                    rel = offset - item.offset
+                    name = parser.get_item_name(item.item_key)
+                    if 0x02 <= rel < 0x0A:
+                        return f"{store.name} - {name} (BuyPrice)"
+                    if 0x0A <= rel < 0x12:
+                        return f"{store.name} - {name} (SellPrice)"
+                    if rel == 0x12:
+                        return f"{store.name} - {name} (Limit)"
+                    if rel == 0x22 or rel == 0x61:
+                        return f"{store.name} - {name} (ItemID)"
+                    return f"{store.name} - {name} (+0x{rel:02X})"
         return f"Offset 0x{offset:X}"
+
 
     def _store_build_changes(self, original: bytes, current: bytes) -> list:
         changes = []
