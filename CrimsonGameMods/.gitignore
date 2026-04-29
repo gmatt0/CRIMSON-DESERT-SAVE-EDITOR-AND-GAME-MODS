@@ -33,3 +33,13 @@ venv/
 *.tmp
 *.bak
 *.orig
+
+# gmatt0
+AGENTS.md
+docs/
+buff_names_community.json
+crimson_data.db
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

@@ -1,0 +1,9 @@
+# Local SQLite caches (should never be committed)
+CrimsonGameMods/crimson_data.db
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Docs (local only)
+docs/
