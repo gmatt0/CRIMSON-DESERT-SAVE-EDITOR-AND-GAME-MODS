@@ -510,9 +510,11 @@ class ItemBuffsTab(QWidget):
             
             act_export_legacy = export_mod_menu.addAction("Export as Legacy JSON (v2)")
             act_export_legacy.setToolTip(
-                "Opens Stacker Tool to export as Format 2 byte-diff JSON.\n"
-                "Use Pull ItemBuffs Edit in Stacker, then Export Legacy JSON.")
-            act_export_legacy.triggered.connect(self._goto_stacker_legacy_export)   
+                "Export only your touched items as a Format 2 byte-diff JSON.\n"
+                "Compact output for legacy mod managers (CDUMM, JMM, DMM).\n"
+                "Items whose serialized length changed (e.g. added equip_buffs)\n"
+                "are skipped — use Field JSON v3 or Mod Folder for those.")
+            act_export_legacy.triggered.connect(self._buff_export_legacy_json_v2)
                      
             # END Export Menu
             
@@ -7879,6 +7881,48 @@ class ItemBuffsTab(QWidget):
             self._buff_open_item_diff_dialog(initial_a=int(item_key))))
         btn_row.addWidget(diff_btn)
 
+        # Edit Price — writes iteminfo.price_list[0].price.price (real silver cost
+        # shown in shops). Storeinfo's buy/sell fields are cosmetic on v1.04.02,
+        # so this is the only working real-price knob. Affects ALL stores selling
+        # the item plus NPC sell-back valuations.
+        price_btn = QPushButton("Edit Price\u2026")
+        _pl = item.get('price_list') or []
+        _cur_price_silver = None
+        if _pl and isinstance(_pl, list) and isinstance(_pl[0], dict):
+            _pblk = _pl[0].get('price')
+            if isinstance(_pblk, dict):
+                _cur_price_silver = _pblk.get('price', 0)
+        if _cur_price_silver is None:
+            price_btn.setEnabled(False)
+            price_btn.setToolTip("This item has no price_list entry \u2014 not sold anywhere.")
+        else:
+            price_btn.setToolTip(
+                f"Edit the real silver cost (currently {_cur_price_silver/100:.2f} = "
+                f"raw {_cur_price_silver}).\nAffects EVERY store selling this item, "
+                "and NPC sell-back valuations.\nApply via Apply to Game / Export as Mod."
+            )
+
+        def _edit_price():
+            from PySide6.QtWidgets import QInputDialog
+            cur_raw = item['price_list'][0]['price'].get('price', 0)
+            cur_silver = cur_raw / 100.0
+            new_silver, ok = QInputDialog.getDouble(
+                dlg, "Edit Real Price",
+                f"New silver cost for {item.get('string_key', 'item')} (key {item_key}):\n"
+                f"Current: {cur_silver:.2f} silver  (raw {cur_raw})",
+                value=cur_silver, minValue=0.0, maxValue=21474836.0, decimals=2)
+            if not ok:
+                return
+            new_raw = max(0, int(round(new_silver * 100)))
+            item['price_list'][0]['price']['price'] = new_raw
+            self._buff_modified = True
+            QMessageBox.information(dlg, "Price Updated",
+                f"Price set to {new_silver:.2f} silver (raw {new_raw}).\n\n"
+                "Apply via Apply to Game or Export as Mod for the change to land.")
+            dlg.accept()
+        price_btn.clicked.connect(_edit_price)
+        btn_row.addWidget(price_btn)
+
         btn_row.addStretch(1)
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(dlg.accept)
@@ -8521,6 +8565,222 @@ class ItemBuffsTab(QWidget):
                     'field': path, 'op': 'set', 'new': vb,
                 })
         return intents
+
+    def _buff_export_legacy_json_v2(self) -> None:
+        """Export edits as Format 2 byte-diff JSON (CrimsonWings/JMM style).
+
+        Mirrors `skill_tree._on_skill_export_legacy` so users can produce a
+        compact legacy mod directly from the ItemBuffs tab — no Stacker
+        round-trip required. Only items the user actually touched in this
+        session are diffed (vs `_buff_rust_items_original`), which keeps
+        the output small enough for legacy mod managers to consume.
+        """
+        if not hasattr(self, '_buff_rust_items') or not self._buff_rust_items:
+            QMessageBox.warning(self, "Export Legacy JSON (v2)",
+                "Extract iteminfo first (click 'Extract').")
+            return
+        orig = getattr(self, '_buff_rust_items_original', None)
+        if not orig:
+            QMessageBox.warning(self, "Export Legacy JSON (v2)",
+                "No vanilla baseline found. Re-extract iteminfo.")
+            return
+
+        game_path = (self._game_path
+                     or self._config.get("game_install_path", "") or "").strip()
+        if not game_path or not os.path.isdir(game_path):
+            QMessageBox.warning(self, "Export Legacy JSON (v2)",
+                "Set the Crimson Desert install path before exporting.")
+            return
+
+        # Identify modified items by deep comparison vs the captured baseline.
+        # Skip the synthetic 'add_entry' case — legacy v2 cannot express
+        # newly-added items (those need Field JSON v3 or a full mod folder).
+        orig_by_key = {it['key']: it for it in orig}
+        modified_pairs: list[tuple[dict, dict]] = []
+        for item in self._buff_rust_items:
+            ikey = item.get('key', 0)
+            vanilla_item = orig_by_key.get(ikey)
+            if vanilla_item is None:
+                continue
+            if vanilla_item != item:
+                modified_pairs.append((vanilla_item, item))
+
+        if not modified_pairs:
+            QMessageBox.information(self, "Export Legacy JSON (v2)",
+                "No modifications detected. Nothing to export.")
+            return
+
+        try:
+            import crimson_rs
+        except Exception as e:
+            QMessageBox.critical(self, "Export Legacy JSON (v2)",
+                f"crimson_rs unavailable: {e}")
+            return
+
+        INTERNAL_DIR = "gamedata/binary__/client/bin"
+        try:
+            vanilla_pabgb = bytes(crimson_rs.extract_file(
+                game_path, '0008', INTERNAL_DIR, 'iteminfo.pabgb'))
+            van_pabgh = bytes(crimson_rs.extract_file(
+                game_path, '0008', INTERNAL_DIR, 'iteminfo.pabgh'))
+        except Exception as e:
+            QMessageBox.critical(self, "Export Legacy JSON (v2)",
+                f"Could not extract vanilla iteminfo:\n{e}")
+            return
+
+        # Walk the pabgh to map item_key → (entry_offset, entry_size).
+        # Layout: u16 count, then `count` records each ending with u32 offset.
+        van_count = struct.unpack_from('<H', van_pabgh, 0)[0]
+        van_rs = (len(van_pabgh) - 2) // van_count if van_count else 8
+        entry_locs: dict[int, tuple[int, int]] = {}
+        for pi in range(van_count):
+            prec = 2 + pi * van_rs
+            if prec + van_rs > len(van_pabgh):
+                break
+            off = struct.unpack_from('<I', van_pabgh, prec + (van_rs - 4))[0]
+            nxt = len(vanilla_pabgb)
+            if pi + 1 < van_count:
+                nrec = 2 + (pi + 1) * van_rs
+                if nrec + van_rs <= len(van_pabgh):
+                    nxt = struct.unpack_from(
+                        '<I', van_pabgh, nrec + (van_rs - 4))[0]
+            if off >= len(vanilla_pabgb):
+                continue
+            pk = struct.unpack_from('<I', vanilla_pabgb, off)[0]
+            entry_locs[pk] = (off, nxt - off)
+
+        changes: list[dict] = []
+        skipped_size_mismatch: list[str] = []
+        for vanilla_item, mod_item in modified_pairs:
+            ikey = mod_item.get('key', 0)
+            loc = entry_locs.get(ikey)
+            if loc is None:
+                continue
+            off, size = loc
+            van_chunk = vanilla_pabgb[off:off + size]
+            try:
+                mod_chunk = bytes(crimson_rs.serialize_iteminfo([mod_item]))
+            except Exception as e:
+                log.warning("legacy export: serialize failed for %s: %s",
+                            mod_item.get('string_key', ikey), e)
+                continue
+
+            entry_name = mod_item.get('string_key') or ''
+            if not entry_name:
+                # Fallback to the name embedded in vanilla bytes.
+                try:
+                    nl = struct.unpack_from('<I', vanilla_pabgb, off + 4)[0]
+                    entry_name = vanilla_pabgb[off + 8:off + 8 + nl].decode(
+                        'ascii', errors='replace')
+                except Exception:
+                    entry_name = f'key_{ikey}'
+
+            # Legacy v2 only safely represents same-length byte spans.
+            # Variable-length `replace` exists in the applier, but it
+            # corrupts the file in practice: (a) the iteminfo.pabgh
+            # offset table isn't regenerated, so the game's per-entry
+            # offsets become stale, and (b) subsequent patches resolve
+            # entry+rel_offset against vanilla bytes but splice into an
+            # already-shifted buffer. Verified by round-trip test against
+            # the real `_apply_one_legacy_patch`. Size-changed entries
+            # (e.g. equip_buffs grew/shrunk) must be exported via Field
+            # JSON v3 or Mod Folder, both of which rebuild pabgh.
+            if len(van_chunk) != len(mod_chunk):
+                skipped_size_mismatch.append(entry_name)
+                continue
+
+            j = 0
+            n = len(van_chunk)
+            while j < n:
+                if van_chunk[j] != mod_chunk[j]:
+                    run_start = j
+                    while j < n and van_chunk[j] != mod_chunk[j]:
+                        j += 1
+                    changes.append({
+                        'entry': entry_name,
+                        'rel_offset': run_start,
+                        'offset': off + run_start,
+                        'original': van_chunk[run_start:j].hex(),
+                        'patched': mod_chunk[run_start:j].hex(),
+                    })
+                else:
+                    j += 1
+
+        if not changes:
+            msg = "No byte-level differences emitted."
+            if skipped_size_mismatch:
+                sample = ', '.join(skipped_size_mismatch[:5])
+                more = (f' (+{len(skipped_size_mismatch) - 5} more)'
+                        if len(skipped_size_mismatch) > 5 else '')
+                msg += (f"\n\n{len(skipped_size_mismatch)} item(s) changed "
+                        f"size and can't be expressed safely in legacy v2 "
+                        f"(pabgh offset table can't be patched by byte "
+                        f"diffs):\n  {sample}{more}\n\n"
+                        f"Use Export as Field JSON (v3) or Export as Mod "
+                        f"Folder for those.")
+            QMessageBox.information(self, "Export Legacy JSON (v2)", msg)
+            return
+
+        from PySide6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(
+            self, "Export Legacy JSON (v2)",
+            "Mod title:", text="My ItemBuffs Mod")
+        if not ok or not name.strip():
+            return
+        name = name.strip()
+
+        default_name = name.replace(' ', '_') + ".json"
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Legacy JSON (v2)", default_name,
+            "JSON Files (*.json);;All Files (*)")
+        if not path:
+            return
+
+        emitted_count = len(modified_pairs) - len(skipped_size_mismatch)
+        doc = {
+            'modinfo': {
+                'title': name,
+                'version': '1.0',
+                'author': 'CrimsonGameMods ItemBuffs',
+                'description': (
+                    f'{len(changes)} byte patch(es) across '
+                    f'{emitted_count} item(s)'),
+            },
+            'format': 2,
+            'patches': [{
+                'game_file': 'gamedata/iteminfo.pabgb',
+                'source_group': '0008',
+                'changes': changes,
+            }],
+        }
+
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(doc, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            QMessageBox.critical(self, "Export Failed", str(e))
+            return
+
+        status_lbl = getattr(self, '_buff_status_label', None)
+        if status_lbl is not None:
+            status_lbl.setText(
+                f"Exported {len(changes)} legacy patch(es) to "
+                f"{os.path.basename(path)}")
+        warn = ''
+        if skipped_size_mismatch:
+            sample = ', '.join(skipped_size_mismatch[:5])
+            more = (f' (+{len(skipped_size_mismatch) - 5} more)'
+                    if len(skipped_size_mismatch) > 5 else '')
+            warn = (f"\n\nSkipped {len(skipped_size_mismatch)} size-changed "
+                    f"item(s):\n  {sample}{more}\n"
+                    f"Legacy v2 can't safely express those (pabgh offset "
+                    f"table won't be patched). Use Field JSON v3 or "
+                    f"Export as Mod Folder for those items.")
+        QMessageBox.information(
+            self, "Export Legacy JSON (v2)",
+            f"Exported {len(changes)} byte-level patch(es) across "
+            f"{emitted_count} item(s).\n\n"
+            f"File: {path}{warn}")
 
     def _buff_export_all_formats(self) -> None:
         if not self._require_dev_mode("Export All Formats"):
