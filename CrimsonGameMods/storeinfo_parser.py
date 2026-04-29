@@ -82,6 +82,14 @@ OFF_FORMAT_TAG = 0x1A
 OFF_ITEM_COUNT = 0x26
 OFF_ITEM_COUNT_2 = 0x2F
 
+# storeinfo's buy/sell fields are NOT absolute prices.
+# They are u64 multipliers in micro-percent: 1_000_000 = 100% (no override),
+# 500_000 = 50% off, 10_000 = 1% (Airship Abyss Artifact uses this).
+# The actual base price lives in iteminfo.pabgb. Editing this multiplier
+# scales the displayed and charged price proportionally.
+PRICE_MULT_UNIT = 1_000_000  # = 100%
+PRICE_MULT_MAX = 10 * PRICE_MULT_UNIT  # cap at 1000% to keep edits safe
+
 
 @dataclass
 class StoreItemEntry:

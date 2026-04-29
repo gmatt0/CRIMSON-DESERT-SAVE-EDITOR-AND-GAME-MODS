@@ -531,8 +531,10 @@ class StoreEditorTab(QWidget):
         layout.addWidget(make_scope_label("game"))
 
         info = QLabel(
-            "Edit vendor inventories — swap items, change purchase limits, "
-            "then Export JSON to use with CD JSON Mod Manager. "
+            "Edit vendor inventories — swap items, set purchase limits, "
+            "and adjust price multipliers (Buy % / Sell %, where 100 = base price). "
+            "Note: storeinfo only stores price multipliers; absolute prices live in "
+            "iteminfo.pabgb. Then Export JSON to use with CD JSON Mod Manager. "
             "Compatible with community JSON patch format (Pldada/CDUMM)."
         )
         info.setWordWrap(True)
@@ -626,10 +628,18 @@ class StoreEditorTab(QWidget):
         items_vlayout.addWidget(QLabel(tr("Items in Store:")))
 
         self._store_items_table = QTableWidget()
-        self._store_items_table.setColumnCount(7)
+        self._store_items_table.setColumnCount(8)
         self._store_items_table.setHorizontalHeaderLabels([
-            "", "Key", "Item Name", "Category", "Limit", "Buy Price", "Sell Price"
+            "", "Key", "Item Name", "Category", "Limit", "Real Price", "Buy Tag", "Sell Tag"
         ])
+        self._store_items_table.setToolTip(tr(
+            "Limit = real purchase cap (working in-game).\n"
+            "Real Price = silver cost from iteminfo.price (read-only here).\n"
+            "  To change real prices, use ItemBuffs tab \u2192 Inspect Item \u2192 Edit Price.\n"
+            "Buy/Sell Tag = COSMETIC ONLY on v1.04.02. Setting <1,000,000 paints a red\n"
+            "'+X%' badge in the shop UI; >1,000,000 paints a blue '-X%' markup.\n"
+            "The actual silver cost does NOT change from these fields."
+        ))
         self._store_items_table.setEditTriggers(
             QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed
         )
@@ -651,9 +661,11 @@ class StoreEditorTab(QWidget):
         ih.setSectionResizeMode(4, QHeaderView.Interactive)
         self._store_items_table.setColumnWidth(4, 60)
         ih.setSectionResizeMode(5, QHeaderView.Interactive)
-        self._store_items_table.setColumnWidth(5, 80)
+        self._store_items_table.setColumnWidth(5, 90)
         ih.setSectionResizeMode(6, QHeaderView.Interactive)
         self._store_items_table.setColumnWidth(6, 80)
+        ih.setSectionResizeMode(7, QHeaderView.Interactive)
+        self._store_items_table.setColumnWidth(7, 80)
         row_h = max(ICON_SIZE + 6, 28) if self._icons_enabled else 24
         self._store_items_table.verticalHeader().setDefaultSectionSize(row_h)
         items_vlayout.addWidget(self._store_items_table)
@@ -721,6 +733,26 @@ class StoreEditorTab(QWidget):
             self._store_parser = old_parser
             self._store_original_body = bytes(old_parser._body_data)
             self._store_original_header = bytes(old_parser._header_data)
+            # Best-effort: load iteminfo to populate the read-only Real Price
+            # column. Failure is non-fatal — prices simply show as '—'.
+            self._store_iteminfo_prices = {}
+            try:
+                import crimson_rs as _crs
+                ii_bytes = bytes(_crs.extract_file(
+                    game_path, '0008', 'gamedata', 'iteminfo.pabgb'))
+                ii_items = _crs.parse_iteminfo_from_bytes(ii_bytes)
+                for _it in ii_items:
+                    pl = _it.get('price_list') or []
+                    if pl and isinstance(pl, list):
+                        first = pl[0]
+                        price_blk = first.get('price') if isinstance(first, dict) else None
+                        if isinstance(price_blk, dict):
+                            p = price_blk.get('price', 0)
+                            if p:
+                                self._store_iteminfo_prices[int(_it['key'])] = int(p)
+                log.info('Stores: loaded %d iteminfo prices', len(self._store_iteminfo_prices))
+            except Exception as _ex:
+                log.warning('Stores: iteminfo price load failed (Real Price will show —): %s', _ex)
             self._store_status.setText(self._store_parser_v2.get_summary())
             self._store_populate_list()
             self._store_modified = False
@@ -859,17 +891,37 @@ class StoreEditorTab(QWidget):
             limit_w.setToolTip("Double-click to edit purchase limit")
             table.setItem(row, 4, limit_w)
 
+            # Real Price (read-only) — from iteminfo.pabgb price_list[0].price.price
+            price_w = QTableWidgetItem()
+            price_raw = getattr(self, '_store_iteminfo_prices', {}).get(item.item_key)
+            if price_raw is None:
+                price_w.setData(Qt.DisplayRole, "—")
+            else:
+                price_w.setData(Qt.DisplayRole, round(price_raw / 100.0, 2))
+            price_w.setFlags(non_editable_flags)
+            price_w.setToolTip(
+                "Actual silver cost shown in-game (iteminfo.price / 100).\n"
+                "Read-only here. To change, use ItemBuffs tab \u2192 right-click item \u2192 Edit Price."
+            )
+            table.setItem(row, 5, price_w)
+
             buy_w = QTableWidgetItem()
-            buy_w.setData(Qt.DisplayRole, item.buy_price)
+            buy_w.setData(Qt.DisplayRole, round(item.buy_price / 10000.0, 2))
             buy_w.setFlags(editable_flags)
-            buy_w.setToolTip("Double-click to edit buy price")
-            table.setItem(row, 5, buy_w)
+            buy_w.setToolTip(
+                "COSMETIC tag only on v1.04.02. 100 = vanilla. Lower paints a red\n"
+                "'+X%' badge in the shop UI; higher paints a blue '-X%' markup.\n"
+                "Does NOT change actual silver cost."
+            )
+            table.setItem(row, 6, buy_w)
 
             sell_w = QTableWidgetItem()
-            sell_w.setData(Qt.DisplayRole, item.sell_price)
+            sell_w.setData(Qt.DisplayRole, round(item.sell_price / 10000.0, 2))
             sell_w.setFlags(editable_flags)
-            sell_w.setToolTip("Double-click to edit sell price")
-            table.setItem(row, 6, sell_w)
+            sell_w.setToolTip(
+                "COSMETIC tag only on v1.04.02. 100 = vanilla. See Buy Tag tooltip."
+            )
+            table.setItem(row, 7, sell_w)
 
         table.setSortingEnabled(True)
         self._store_suppress_cell_edit = False
@@ -878,7 +930,8 @@ class StoreEditorTab(QWidget):
         if getattr(self, '_store_suppress_cell_edit', False):
             return
         col = cell.column()
-        if col not in (4, 5, 6):
+        # 4=limit, 6=buy tag, 7=sell tag. 5 (Real Price) is read-only.
+        if col not in (4, 6, 7):
             return
         if not hasattr(self, '_store_parser_v2') or not self._store_parser_v2:
             return
@@ -894,13 +947,24 @@ class StoreEditorTab(QWidget):
 
         raw = cell.data(Qt.DisplayRole)
         try:
-            new_val = int(raw)
-            if new_val < 0:
-                raise ValueError
+            if col == 4:
+                new_val = int(raw)
+                if new_val < 0:
+                    raise ValueError
+            else:
+                pct = float(raw)
+                if pct < 0:
+                    raise ValueError
+                # 100 = 1_000_000 micro-percent units. Cap at 1000 (10x).
+                new_val = min(int(round(pct * 10000)), 10_000_000)
         except (TypeError, ValueError):
             self._store_suppress_cell_edit = True
-            orig = {4: item.purchase_limit, 5: item.buy_price, 6: item.sell_price}[col]
-            cell.setData(Qt.DisplayRole, orig)
+            if col == 4:
+                cell.setData(Qt.DisplayRole, item.purchase_limit)
+            elif col == 6:
+                cell.setData(Qt.DisplayRole, round(item.buy_price / 10000.0, 2))
+            else:
+                cell.setData(Qt.DisplayRole, round(item.sell_price / 10000.0, 2))
             self._store_suppress_cell_edit = False
             return
 
@@ -914,22 +978,25 @@ class StoreEditorTab(QWidget):
                 cell.setForeground(QBrush(QColor(COLORS['success'])))
             else:
                 cell.setForeground(QBrush(QColor(COLORS['text'])))
-        elif col == 5:
-            if new_val > 0xFFFFFFFFFFFFFFFF:
-                new_val = 0xFFFFFFFFFFFFFFFF
+        elif col == 6:
             struct.pack_into('<Q', body, item.offset + 0x02, new_val)
             item.buy_price = new_val
-        elif col == 6:
-            if new_val > 0xFFFFFFFFFFFFFFFF:
-                new_val = 0xFFFFFFFFFFFFFFFF
+            self._store_suppress_cell_edit = True
+            cell.setData(Qt.DisplayRole, round(new_val / 10000.0, 2))
+            self._store_suppress_cell_edit = False
+        elif col == 7:
             struct.pack_into('<Q', body, item.offset + 0x0A, new_val)
             item.sell_price = new_val
+            self._store_suppress_cell_edit = True
+            cell.setData(Qt.DisplayRole, round(new_val / 10000.0, 2))
+            self._store_suppress_cell_edit = False
 
         self._store_parser._body_data = bytearray(self._store_parser_v2.get_body_bytes())
         self._store_update_change_count(1)
-        col_name = {4: 'limit', 5: 'buy price', 6: 'sell price'}[col]
+        col_name = {4: 'limit', 6: 'buy tag', 7: 'sell tag'}[col]
+        display = new_val if col == 4 else f"{new_val/10000.0:.2f}"
         self._store_status.setText(
-            f"Set {col_name}={new_val} on {self._store_parser_v2.get_item_name(item.item_key)}"
+            f"Set {col_name}={display} on {self._store_parser_v2.get_item_name(item.item_key)}"
         )
 
     def _store_get_selected_items(self):
@@ -1163,9 +1230,9 @@ class StoreEditorTab(QWidget):
                     rel = offset - item.offset
                     name = parser.get_item_name(item.item_key)
                     if 0x02 <= rel < 0x0A:
-                        return f"{store.name} - {name} (BuyPrice)"
+                        return f"{store.name} - {name} (BuyMult)"
                     if 0x0A <= rel < 0x12:
-                        return f"{store.name} - {name} (SellPrice)"
+                        return f"{store.name} - {name} (SellMult)"
                     if rel == 0x12:
                         return f"{store.name} - {name} (Limit)"
                     if rel == 0x22 or rel == 0x61:
