@@ -1,0 +1,103 @@
+import struct
+
+def parse_knowledgeinfo_entry(data, pos):
+    """Auto-generated parser for knowledgeinfo entries."""
+    entry = {}
+
+    entry['field_0'] = struct.unpack_from('<I', data, pos)[0]; pos += 4
+    entry['field_1'] = data[pos]; pos += 1
+    entry['field_2'] = struct.unpack_from('<I', data, pos)[0]; pos += 4
+    entry['field_3'] = data[pos]; pos += 1
+    entry['field_4'] = struct.unpack_from('<f', data, pos)[0]; pos += 4
+    entry['field_5'] = data[pos]; pos += 1
+    entry['field_6'] = data[pos]; pos += 1
+    entry['field_7'] = data[pos]; pos += 1
+    entry['field_8'] = data[pos]; pos += 1
+    entry['field_9'] = struct.unpack_from('<f', data, pos)[0]; pos += 4
+    entry['field_10'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_11'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_12'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_13'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_14'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_15'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_16'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_17'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_18'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_19'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_20'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_21'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_22'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_23'] = struct.unpack_from('<f', data, pos)[0]; pos += 4
+    entry['field_24'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_25'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_26'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_27'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_28'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_29'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_30'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_31'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_32'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_33'] = struct.unpack_from('<f', data, pos)[0]; pos += 4
+    entry['field_34'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_35'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_36'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_37'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_38'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_39'] = struct.unpack_from('<f', data, pos)[0]; pos += 4
+    entry['field_40'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_41'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_42'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_43'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_44'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_45'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_46'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_47'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_48'] = struct.unpack_from('<f', data, pos)[0]; pos += 4
+    entry['field_49'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_50'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_51'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_52'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_53'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_54'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_55'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_56'] = struct.unpack_from('<f', data, pos)[0]; pos += 4
+    entry['field_57'] = struct.unpack_from('<f', data, pos)[0]; pos += 4
+    entry['field_58'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_59'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_60'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_61'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_62'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_63'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_64'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_65'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_66'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_67'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_68'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_69'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_70'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_71'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_72'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_73'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_74'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_75'] = struct.unpack_from('<f', data, pos)[0]; pos += 4
+    entry['field_76'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_77'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_78'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_79'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_80'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_81'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_82'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_83'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_84'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_85'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_86'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_87'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_88'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_89'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_90'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_91'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_92'] = struct.unpack_from('<i', data, pos)[0]; pos += 4
+    entry['field_93'] = data[pos]; pos += 1
+    entry['field_94'] = data[pos]; pos += 1
+
+    return entry, pos

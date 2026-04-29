@@ -41,7 +41,7 @@ def _setup_file_logging() -> None:
         base = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) \
                else os.path.dirname(os.path.abspath(__file__))
         log_path = os.path.join(base, "logs.txt")
-        log_file = open(log_path, "a", buffering=1, encoding="utf-8", errors="replace")
+        log_file = open(log_path, "w", buffering=1, encoding="utf-8", errors="replace")
 
         class _Tee:
             def __init__(self, *streams): self._streams = [s for s in streams if s]
@@ -65,7 +65,7 @@ def _setup_file_logging() -> None:
             handlers=[logging.StreamHandler(sys.stdout)],
             force=True,
         )
-        print(f"=== Session start {datetime.datetime.now().isoformat()} ===")
+        print(f"=== Session start {datetime.datetime.now().isoformat()} | CrimsonGameMods v{_APP_VER} ===")
 
         def _excepthook(exc_type, exc, tb):
             import traceback

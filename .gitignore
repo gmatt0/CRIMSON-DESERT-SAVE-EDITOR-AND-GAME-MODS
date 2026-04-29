@@ -7,3 +7,6 @@ CrimsonGameMods/crimson_data.db
 
 # Docs (local only)
 docs/
+
+# Sibling project (out of scope for this repo)
+crimson-rs/

@@ -145,23 +145,24 @@ def inject_rider_bone(pab_data: bytes, rider_y: float = 8.0,
 
 
 def _write_scaled_appearance(game_path: str, appearance_paz_path: str,
-                             character_scale: float, mod_root: str):
+                             scale_multiplier: float, mod_root: str):
     """Extract an appearance XML from PAZ, modify CharacterScale, write to mod folder.
 
-    IMPORTANT: Always extracts the original XML first to preserve all attributes
-    (Prefab Name, Head, Hair, Armor, Customization, Audio, etc.). Only the
-    CharacterScale value is modified via regex replacement.
+    The scale_multiplier is applied relative to the character's native scale:
+      - 2.0 = double the native size
+      - 0.5 = half the native size
+      - -2.0 = shrink by factor of 2 (native / 2)
+      Negative values divide instead of multiply.
 
     Args:
         game_path: Game install directory
         appearance_paz_path: Full PAZ internal path to .app.xml
-        character_scale: New scale value
+        scale_multiplier: Multiplier to apply to native CharacterScale
         mod_root: Root of the mod folder tree to write into
     """
     import re
     import crimson_rs
 
-    # Game update changed .app.xml -> .app_xml
     if appearance_paz_path.endswith('.app.xml'):
         appearance_paz_path = appearance_paz_path[:-len('.app.xml')] + '.app_xml'
 
@@ -169,7 +170,6 @@ def _write_scaled_appearance(game_path: str, appearance_paz_path: str,
     app_file = appearance_paz_path.split('/')[-1]
     app_paz_dir = '/'.join(app_dir_parts)
 
-    # Extract original from PAZ — preserves all sections and attributes
     try:
         raw = bytes(crimson_rs.extract_file(game_path, '0009', app_paz_dir, app_file))
         app_content = raw.decode('utf-8', errors='replace')
@@ -182,15 +182,22 @@ def _write_scaled_appearance(game_path: str, appearance_paz_path: str,
             f"  Error: {e}\n"
             f"  Tip: verify the PAZ path exists in 0009/0.pamt") from e
 
-    # Regex-replace ONLY the CharacterScale value
     if 'CharacterScale' not in app_content:
         raise ValueError(
             f"No CharacterScale attribute found in {appearance_paz_path}.\n"
             f"Content: {app_content[:200]}...")
 
+    match = re.search(r'CharacterScale="([^"]*)"', app_content)
+    native_scale = float(match.group(1)) if match else 1.0
+
+    if scale_multiplier < 0:
+        final_scale = native_scale / abs(scale_multiplier)
+    else:
+        final_scale = native_scale * scale_multiplier
+
     app_content = re.sub(
         r'CharacterScale="[^"]*"',
-        f'CharacterScale="{character_scale}"',
+        f'CharacterScale="{final_scale}"',
         app_content)
 
     # Write to mod folder with correct internal PAZ path

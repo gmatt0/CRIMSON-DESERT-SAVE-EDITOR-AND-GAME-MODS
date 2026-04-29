@@ -138,13 +138,13 @@ def parse_transmog_items_crimson_rs(data: bytes) -> list[ArmorItem]:
 
 
 def parse_transmog_items(data: bytes, loc_dict: Optional[dict] = None) -> list[ArmorItem]:
-    legacy = _parse_transmog_items_legacy(data, loc_dict)
-    if legacy:
-        return legacy
     try:
-        return parse_transmog_items_crimson_rs(data)
+        rs = parse_transmog_items_crimson_rs(data)
+        if rs:
+            return rs
     except Exception:
-        return []
+        pass
+    return _parse_transmog_items_legacy(data, loc_dict)
 
 
 def _parse_transmog_items_legacy(data: bytes, loc_dict: Optional[dict] = None) -> list[ArmorItem]:

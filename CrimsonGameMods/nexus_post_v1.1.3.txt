@@ -1,0 +1,71 @@
+[size=5][b]CrimsonGameMods v1.1.3[/b][/size]
+[size=2]2026-04-25[/size]
+
+[quote]
+[size=3][color=#ff4466]⚠ WARNING:[/color] This version allows you to have every item with abyss slot and 5 sockets. Do not go crazy — otherwise you will have an infinite loading screen.[/size]
+[/quote]
+
+[line]
+
+[size=4][b]🔓 Abyss Gear Unlock[/b][/size]
+[list]
+[*]Sets [font=Courier New]equipable_hash = 0[/font] on all AbyssGear items (192 restricted, 293 total)
+[*]Field-name based — survives game updates, auto-catches new abyss items
+[*][b]"Unlock All Abyss Gear"[/b] button in Global Mods > Apply to All Items
+[*]Wired into [b]Enable Everything[/b] — runs automatically between sockets and UP v2
+[*]Stacker detection — [font=Courier New]abyss_unlocked / abyss_total[/font] in pull summary
+[*][b]Credit:[/b] [url=https://www.nexusmods.com/crimsondesert/users/OhmesmileTH]OhmesmileTH[/url] (Nexus Mods) for discovering the [font=Courier New]_equipableHash = 0[/font] technique. Re-implemented as a field-name mod that stacks with everything.
+[/list]
+
+[size=4][b]🔌 100% Socket Coverage[/b][/size]
+[list]
+[*][b]3051/3051[/b] equippable items now get 5 sockets (was 951)
+[*]Covers daggers, masks, glasses, pirate hats, health devices, all armor, all weapons
+[*]Lantern + Bracer added to force-socket categories
+[*]Daeil_Band (Axiom Bracelets) added to force-socket string keys
+[/list]
+
+[size=4][b]⚔ Universal Proficiency + Kliff Gun Fix[/b][/size]
+[list]
+[*]Standalone [b]Kliff Gun Fix[/b] — copies Damian upper action chart + Oongka gameplay data to Kliff
+[*]Integrated into [b]UP v2[/b] and [b]Enable Everything[/b] — prompts automatically
+[*]Apply to Game / Export as Mod / CDUMM Export all bundle the fix
+[*]Restore clears staged files and shows Kliff Gun Fix status
+[/list]
+
+[size=4][b]🛠 Item Creator Improvements[/b][/size]
+[size=2][i](experimental — not fully tested yet)[/i][/size]
+[list]
+[*][b]"Stage Item"[/b] — pushes custom item into memory, deploy with Apply to Game alongside all other edits
+[*][b]"Deliver via Money Bag"[/b] — deploys dropsetinfo overlay so your custom item drops from Copper Money Bags at 100% rate. No save editing required.
+[*]"Swap to Vendor" removed (didn't work reliably)
+[/list]
+
+[size=4][b]🎨 Collapsible UI Bars[/b][/size]
+[list]
+[*]Notice, Actions, Search, and DEV Ring Presets bars are now collapsible with state saved to config
+[*]Game path bar toggle — [font=Courier New]▲/▼[/font] button replaces the old cryptic "X"
+[*]View > Show / Hide Panels > Game Path Bar menu toggle added
+[/list]
+
+[size=4][b]🐛 Bug Fixes[/b][/size]
+[list]
+[*][b]Admin check fix[/b] — replaced [font=Courier New]IsUserAnAdmin()[/font] with actual write-access test. Steam users no longer get blocked from Apply to Game.
+[*][b]PAPGT Surgical Restore[/b] — Restore now only removes ItemBuffs entries instead of reverting to a stale backup. No more crashes from dead directory references.
+[*][b]SkillTree Legacy JSON Export[/b] — offset calculation fixed to match CrimsonWings/DMM/JMM convention. All 277 reference offsets verified.
+[*][b]Stacker Tab Navigation[/b] — tab now actually switches visually
+[*][b]AbyssGearUnlocker.field.json[/b] — fixed: old version was a no-op (captured vanilla values instead of 0)
+[/list]
+
+[size=4][b]🍒 @ShadowfeindX Fork Cherry-Picks[/b][/size]
+[list]
+[*]Buff-to-item index — find which items share a passive or buff
+[*]Context menus: "Show items with this passive/buff", "With same passives/buffs", "Dump item info to disk"
+[*][b]DEV Ring preset buttons[/b] — collapsible grid (Immunity, STR/HP, DEF/HP, MP/Stam, Speed, All DEV, Elemental, Jump Boots)
+[*]Import ITEMINFO — load dumped item JSON back into editor
+[*]Max Stacks preset — one-click button
+[*]And more...
+[/list]
+
+[line]
+[size=2][url=https://github.com/NattKh/CRIMSON-DESERT-SAVE-EDITOR-AND-GAME-MODS/releases/tag/gamemods-v1.1.3]Full changelog on GitHub[/url][/size]
